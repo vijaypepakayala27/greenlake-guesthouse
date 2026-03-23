@@ -210,7 +210,12 @@ export default function DashboardGrid() {
     let revenue = 0;
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
-      if (b.check_in <= today && today < b.check_out) occupied.add(b.room_number);
+      // Checkout is 11am. A room with check_out = today is already free by afternoon.
+      // Only count as occupied if checkout is strictly after today (tomorrow or later).
+      // check_in must be today or earlier, check_out must be tomorrow or later.
+      const tomorrow = new Date(today); 
+      // Use string comparison: occupied only if check_out > today date string
+      if (b.check_in <= today && b.check_out > today) occupied.add(b.room_number);
       if (b.status === "paid") revenue += b.amount || 0;
     }
     return {
