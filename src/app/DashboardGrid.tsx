@@ -482,7 +482,13 @@ export default function DashboardGrid() {
                                 ? `${booking.guest_name} (${booking.status}) — ${fmt(booking.check_in)} → ${fmt(booking.check_out)}`
                                 : `Available — Room ${room.room_number}, ${ds}`}
                             >
-                              <div className={`grid-cell-inner ${colorClass}`} />
+                              <div className={`grid-cell-inner ${colorClass}`}>
+                                {booking && (
+                                  <span className="grid-cell-name">
+                                    {booking.guest_name.split(" ")[0]}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           );
                         })}

@@ -48,8 +48,8 @@ body {
 }
 
 .booking-grid .day-header {
-  min-width: 44px;
-  width: 44px;
+  min-width: 48px;
+  width: 48px;
   background: #f8fafc;
   text-align: center;
   padding: 4px 2px;
@@ -75,14 +75,33 @@ body {
 
 .grid-cell {
   cursor: pointer;
-  padding: 3px;
+  padding: 2px;
 }
 
 .grid-cell-inner {
   width: 100%;
-  height: 34px;
+  height: 46px;
   border-radius: 4px;
   transition: filter 0.1s, transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  padding: 2px 3px;
+}
+
+.grid-cell-name {
+  font-size: 8px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.75);
+  line-height: 1.2;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40px;
 }
 
 .grid-cell:hover .grid-cell-inner {
