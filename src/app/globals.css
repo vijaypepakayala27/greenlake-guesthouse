@@ -48,8 +48,8 @@ body {
 }
 
 .booking-grid .day-header {
-  min-width: 32px;
-  width: 32px;
+  min-width: 44px;
+  width: 44px;
   background: #f8fafc;
   text-align: center;
   padding: 4px 2px;
@@ -75,13 +75,13 @@ body {
 
 .grid-cell {
   cursor: pointer;
-  padding: 2px;
+  padding: 3px;
 }
 
 .grid-cell-inner {
   width: 100%;
-  height: 26px;
-  border-radius: 3px;
+  height: 34px;
+  border-radius: 4px;
   transition: filter 0.1s, transform 0.1s;
 }
 
