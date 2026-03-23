@@ -44,6 +44,20 @@ interface BookingForm {
   notes: string;
 }
 
+interface EditForm {
+  guest_name: string;
+  guest_phone: string;
+  guest_email: string;
+  check_in: string;
+  check_out: string;
+  adults: string;
+  children: string;
+  status: string;
+  amount: string;
+  special_requests: string;
+  notes: string;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FLOOR_LABEL: Record<number, string> = {
@@ -73,19 +87,19 @@ const TYPE_BADGE: Record<string, string> = {
 };
 
 const FLOOR_HEADER_BG: Record<number, string> = {
-  1: "#1e40af", // blue-800
-  2: "#1d4ed8", // blue-700
-  3: "#6b21a8", // purple-800
-  4: "#7e22ce", // purple-700
-  5: "#b45309", // amber-700
+  1: "#1e40af",
+  2: "#1d4ed8",
+  3: "#6b21a8",
+  4: "#7e22ce",
+  5: "#b45309",
 };
 
 const FLOOR_ROOM_LABEL_BG: Record<number, string> = {
-  1: "#eff6ff", // blue-50
-  2: "#eff6ff", // blue-50
-  3: "#faf5ff", // purple-50
-  4: "#faf5ff", // purple-50
-  5: "#fffbeb", // amber-50
+  1: "#eff6ff",
+  2: "#eff6ff",
+  3: "#faf5ff",
+  4: "#faf5ff",
+  5: "#fffbeb",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -122,6 +136,22 @@ function nightCount(checkIn: string, checkOut: string): number {
   return Math.max(0, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000));
 }
 
+function bookingToEditForm(b: Booking): EditForm {
+  return {
+    guest_name: b.guest_name || "",
+    guest_phone: b.guest_phone || "",
+    guest_email: b.guest_email || "",
+    check_in: b.check_in || "",
+    check_out: b.check_out || "",
+    adults: String(b.adults ?? 1),
+    children: String(b.children ?? 0),
+    status: b.status || "pending",
+    amount: b.amount != null ? String(b.amount) : "",
+    special_requests: b.special_requests || "",
+    notes: b.notes || "",
+  };
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function DashboardGrid() {
@@ -143,10 +173,9 @@ export default function DashboardGrid() {
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
 
-  // Edit mode in side panel
-  const [editStatus, setEditStatus] = useState("");
-  const [editAmount, setEditAmount] = useState("");
-  const [editNotes, setEditNotes] = useState("");
+  // Edit form in side panel
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [panelError, setPanelError] = useState("");
   const [panelLoading, setPanelLoading] = useState(false);
 
   const today = todayStr();
@@ -181,7 +210,6 @@ export default function DashboardGrid() {
 
   const days = useMemo(() => Array.from({ length: daysInMonth(currentMonth) }, (_, i) => i + 1), [currentMonth]);
 
-  // Build lookup: room_number -> date -> booking
   const bookingMap = useMemo(() => {
     const map: Record<string, Record<string, Booking>> = {};
     for (const b of bookings) {
@@ -210,11 +238,6 @@ export default function DashboardGrid() {
     let revenue = 0;
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
-      // Checkout is 11am. A room with check_out = today is already free by afternoon.
-      // Only count as occupied if checkout is strictly after today (tomorrow or later).
-      // check_in must be today or earlier, check_out must be tomorrow or later.
-      const tomorrow = new Date(today); 
-      // Use string comparison: occupied only if check_out > today date string
       if (b.check_in <= today && b.check_out > today) occupied.add(b.room_number);
       if (b.status === "paid") revenue += b.amount || 0;
     }
@@ -245,9 +268,8 @@ export default function DashboardGrid() {
   function handleCellClick(room: Room, day: number, booking: Booking | null) {
     if (booking) {
       setSelectedBooking(booking);
-      setEditStatus(booking.status);
-      setEditAmount(booking.amount ? String(booking.amount) : "");
-      setEditNotes(booking.notes || "");
+      setEditForm(bookingToEditForm(booking));
+      setPanelError("");
       setShowAddModal(false);
     } else {
       const checkIn = cellDate(currentMonth, day);
@@ -302,24 +324,64 @@ export default function DashboardGrid() {
     }
   }
 
-  // ─── Update booking (panel) ─────────────────────────────────────────────────
+  // ─── Save all edits ─────────────────────────────────────────────────────────
 
   async function handleUpdateBooking() {
-    if (!selectedBooking) return;
+    if (!selectedBooking || !editForm) return;
+    setPanelError("");
+
+    // Validate dates
+    if (editForm.check_out <= editForm.check_in) {
+      setPanelError("Check-out must be after check-in.");
+      return;
+    }
+
     setPanelLoading(true);
     try {
       const res = await fetch(`/api/bookings/${selectedBooking.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: editStatus,
-          amount: editAmount ? Number(editAmount) : null,
-          notes: editNotes,
+          ...editForm,
+          adults: Number(editForm.adults),
+          children: Number(editForm.children),
+          amount: editForm.amount ? Number(editForm.amount) : null,
         }),
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "Update failed"); return; }
+      if (!res.ok) {
+        setPanelError(data.error || "Update failed");
+        return;
+      }
       setSelectedBooking(data.booking);
+      setEditForm(bookingToEditForm(data.booking));
+      fetchData();
+    } catch {
+      setPanelError("Connection error. Please try again.");
+    } finally {
+      setPanelLoading(false);
+    }
+  }
+
+  // ─── Quick status update ────────────────────────────────────────────────────
+
+  async function handleQuickUpdate(fields: Partial<Record<string, string | number>>) {
+    if (!selectedBooking) return;
+    setPanelError("");
+    setPanelLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPanelError(data.error || "Update failed");
+        return;
+      }
+      setSelectedBooking(data.booking);
+      setEditForm(bookingToEditForm(data.booking));
       fetchData();
     } finally {
       setPanelLoading(false);
@@ -330,11 +392,12 @@ export default function DashboardGrid() {
 
   async function handleCancelBooking() {
     if (!selectedBooking) return;
-    if (!confirm(`Cancel booking for ${selectedBooking.guest_name}?`)) return;
+    if (!confirm("This will mark the booking as cancelled.")) return;
     setPanelLoading(true);
     try {
       await fetch(`/api/bookings/${selectedBooking.id}`, { method: "DELETE" });
       setSelectedBooking(null);
+      setEditForm(null);
       fetchData();
     } finally {
       setPanelLoading(false);
@@ -367,7 +430,6 @@ export default function DashboardGrid() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Month navigation */}
           <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5 text-sm">
             <button onClick={prevMonth} className="text-white/70 hover:text-white px-1 font-bold text-lg leading-none">‹</button>
             <span className="font-medium w-36 text-center">{monthLabel(currentMonth)}</span>
@@ -443,7 +505,6 @@ export default function DashboardGrid() {
               <tbody>
                 {[1, 2, 3, 4, 5].map((floor) => (
                   <>
-                    {/* Floor header row */}
                     <tr key={`floor-${floor}`}>
                       <td
                         colSpan={days.length + 1}
@@ -454,10 +515,8 @@ export default function DashboardGrid() {
                       </td>
                     </tr>
 
-                    {/* Room rows */}
                     {(roomsByFloor[floor] || []).map((room) => (
                       <tr key={room.room_number} className="hover:bg-gray-50/80">
-                        {/* Room label cell */}
                         <td className="room-cell border border-gray-200 px-2 py-1" style={{ background: FLOOR_ROOM_LABEL_BG[floor] }}>
                           <div className="font-semibold text-gray-800 text-xs">{room.room_number}</div>
                           <div className={`inline-block px-1 rounded text-gray-500 mt-0.5 capitalize`} style={{ fontSize: 9 }}>
@@ -465,12 +524,12 @@ export default function DashboardGrid() {
                           </div>
                         </td>
 
-                        {/* Day cells */}
                         {days.map((d) => {
                           const ds = cellDate(currentMonth, d);
                           const booking = bookingMap[room.room_number]?.[ds] || null;
                           const isToday = ds === today;
                           const colorClass = booking ? (CELL_COLORS[booking.status] || "cell-available") : "cell-available";
+                          const isFirstDay = booking && ds === booking.check_in;
 
                           return (
                             <td
@@ -484,9 +543,9 @@ export default function DashboardGrid() {
                             >
                               <div className={`grid-cell-inner ${colorClass}`}>
                                 {booking && (
-                                  <span className="grid-cell-name">
-                                    {booking.guest_name.split(" ")[0]}
-                                  </span>
+                                  isFirstDay
+                                    ? <span className="grid-cell-name">{booking.guest_name.split(" ")[0]}</span>
+                                    : <span style={{ fontSize: 9, opacity: 0.5, lineHeight: 1 }}>›</span>
                                 )}
                               </div>
                             </td>
@@ -502,13 +561,16 @@ export default function DashboardGrid() {
         </div>
 
         {/* ── Side Panel ── */}
-        {selectedBooking && (
+        {selectedBooking && editForm && (
           <div className="side-panel w-80 bg-white border-l border-gray-200 flex flex-col flex-shrink-0 overflow-y-auto">
             {/* Panel header */}
             <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-800 text-sm">Booking Details</h2>
+              <div>
+                <h2 className="font-semibold text-gray-800 text-sm">Edit Booking</h2>
+                <p className="text-xs text-gray-500">Room {selectedBooking.room_number}</p>
+              </div>
               <button
-                onClick={() => setSelectedBooking(null)}
+                onClick={() => { setSelectedBooking(null); setEditForm(null); }}
                 className="text-gray-400 hover:text-gray-700 text-xl leading-none"
               >
                 ×
@@ -516,112 +578,183 @@ export default function DashboardGrid() {
             </div>
 
             <div className="p-4 space-y-4">
-              {/* Status badge */}
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${STATUS_OPTIONS.find(s => s.value === selectedBooking.status)?.color || "bg-gray-100 text-gray-600"}`}>
-                  {STATUS_OPTIONS.find(s => s.value === selectedBooking.status)?.label || selectedBooking.status}
-                </span>
-                <span className="text-xs text-gray-500">Room {selectedBooking.room_number}</span>
+
+              {/* Quick status actions */}
+              <div className="flex flex-wrap gap-1.5">
+                {selectedBooking.status === "pending" && (
+                  <button
+                    onClick={() => handleQuickUpdate({ status: "confirmed" })}
+                    disabled={panelLoading}
+                    className="px-2 py-1 text-xs bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 rounded-md transition disabled:opacity-40"
+                  >
+                    Mark Confirmed
+                  </button>
+                )}
+                {selectedBooking.status === "confirmed" && (
+                  <button
+                    onClick={() => handleQuickUpdate({ status: "paid" })}
+                    disabled={panelLoading}
+                    className="px-2 py-1 text-xs bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 rounded-md transition disabled:opacity-40"
+                  >
+                    Mark Paid
+                  </button>
+                )}
+                {selectedBooking.status === "confirmed" && (
+                  <button
+                    onClick={() => handleQuickUpdate({ status: "confirmed", check_in: today })}
+                    disabled={panelLoading}
+                    className="px-2 py-1 text-xs bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 rounded-md transition disabled:opacity-40"
+                  >
+                    Check In
+                  </button>
+                )}
+                {(selectedBooking.status === "confirmed" || selectedBooking.status === "paid") && (
+                  <button
+                    onClick={() => handleQuickUpdate({ check_out: today })}
+                    disabled={panelLoading}
+                    className="px-2 py-1 text-xs bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 rounded-md transition disabled:opacity-40"
+                  >
+                    Check Out
+                  </button>
+                )}
               </div>
 
               {/* Guest info */}
               <div className="space-y-2">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Guest</h3>
-                <PanelRow label="Name" value={selectedBooking.guest_name} />
-                {selectedBooking.guest_phone && <PanelRow label="Phone" value={selectedBooking.guest_phone} />}
-                {selectedBooking.guest_email && <PanelRow label="Email" value={selectedBooking.guest_email} />}
-                <PanelRow label="Guests" value={`${selectedBooking.adults} adult${selectedBooking.adults !== 1 ? "s" : ""}${selectedBooking.children > 0 ? `, ${selectedBooking.children} child${selectedBooking.children !== 1 ? "ren" : ""}` : ""}`} />
+                <PanelInput
+                  label="Name"
+                  value={editForm.guest_name}
+                  onChange={(v) => setEditForm((f) => f ? { ...f, guest_name: v } : f)}
+                  placeholder="Full name"
+                />
+                <PanelInput
+                  label="Phone"
+                  value={editForm.guest_phone}
+                  onChange={(v) => setEditForm((f) => f ? { ...f, guest_phone: v } : f)}
+                  placeholder="+27 82 123 4567"
+                  type="tel"
+                />
+                <PanelInput
+                  label="Email"
+                  value={editForm.guest_email}
+                  onChange={(v) => setEditForm((f) => f ? { ...f, guest_email: v } : f)}
+                  placeholder="guest@email.com"
+                  type="email"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <PanelInput
+                    label="Adults"
+                    value={editForm.adults}
+                    onChange={(v) => setEditForm((f) => f ? { ...f, adults: v } : f)}
+                    type="number"
+                    min={1}
+                  />
+                  <PanelInput
+                    label="Children"
+                    value={editForm.children}
+                    onChange={(v) => setEditForm((f) => f ? { ...f, children: v } : f)}
+                    type="number"
+                    min={0}
+                  />
+                </div>
               </div>
 
-              {/* Dates */}
+              {/* Stay */}
               <div className="space-y-2">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Stay</h3>
-                <PanelRow label="Check-in" value={fmt(selectedBooking.check_in)} />
-                <PanelRow label="Check-out" value={fmt(selectedBooking.check_out)} />
-                <PanelRow label="Nights" value={nightCount(selectedBooking.check_in, selectedBooking.check_out)} />
+                <div className="grid grid-cols-2 gap-2">
+                  <PanelInput
+                    label="Check-in"
+                    value={editForm.check_in}
+                    onChange={(v) => setEditForm((f) => f ? { ...f, check_in: v } : f)}
+                    type="date"
+                  />
+                  <PanelInput
+                    label="Check-out"
+                    value={editForm.check_out}
+                    onChange={(v) => setEditForm((f) => f ? { ...f, check_out: v } : f)}
+                    type="date"
+                  />
+                </div>
+                {editForm.check_in && editForm.check_out && editForm.check_out > editForm.check_in && (
+                  <p className="text-xs text-gray-500">{nightCount(editForm.check_in, editForm.check_out)} night(s)</p>
+                )}
               </div>
 
-              {/* Amount */}
-              {selectedBooking.amount != null && (
-                <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                  <span className="text-xs text-green-700 font-medium">Amount</span>
-                  <div className="text-lg font-bold text-green-800">
-                    R {Number(selectedBooking.amount).toLocaleString("en-ZA")}
-                  </div>
-                </div>
-              )}
-
-              {/* Special requests */}
-              {selectedBooking.special_requests && (
-                <div className="space-y-1">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Special Requests</h3>
-                  <p className="text-xs text-gray-700 bg-gray-50 rounded p-2">{selectedBooking.special_requests}</p>
-                </div>
-              )}
-
-              {/* Edit section */}
-              <div className="space-y-3 border-t border-gray-100 pt-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Update</h3>
-
+              {/* Status & Amount */}
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Booking</h3>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Status</label>
                   <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                    value={editForm.status}
+                    onChange={(e) => setEditForm((f) => f ? { ...f, status: e.target.value } : f)}
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-600"
                   >
                     {STATUS_OPTIONS.map((s) => (
                       <option key={s.value} value={s.value}>{s.label}</option>
                     ))}
                   </select>
                 </div>
+                <PanelInput
+                  label="Amount (ZAR)"
+                  value={editForm.amount}
+                  onChange={(v) => setEditForm((f) => f ? { ...f, amount: v } : f)}
+                  type="number"
+                  placeholder="0.00"
+                />
+              </div>
 
+              {/* Requests & Notes */}
+              <div className="space-y-2">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Amount (ZAR)</label>
-                  <input
-                    type="number"
-                    value={editAmount}
-                    onChange={(e) => setEditAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Notes</label>
+                  <label className="block text-xs text-gray-600 mb-1">Special Requests</label>
                   <textarea
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
+                    value={editForm.special_requests}
+                    onChange={(e) => setEditForm((f) => f ? { ...f, special_requests: e.target.value } : f)}
                     rows={2}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none"
+                    placeholder="Any special requests…"
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-600 resize-none"
                   />
                 </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleUpdateBooking}
-                    disabled={panelLoading}
-                    className="flex-1 bg-green-700 hover:bg-green-800 disabled:bg-gray-300 text-white text-sm font-medium py-2 rounded-lg transition"
-                  >
-                    {panelLoading ? "Saving…" : "Save Changes"}
-                  </button>
-                  <button
-                    onClick={handleCancelBooking}
-                    disabled={panelLoading || selectedBooking.status === "cancelled"}
-                    className="px-3 py-2 border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 text-sm rounded-lg transition"
-                  >
-                    Cancel
-                  </button>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Notes (internal)</label>
+                  <textarea
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((f) => f ? { ...f, notes: e.target.value } : f)}
+                    rows={2}
+                    placeholder="Internal staff notes…"
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-600 resize-none"
+                  />
                 </div>
               </div>
 
-              {/* Notes display (if different from editNotes) */}
-              {selectedBooking.notes && (
-                <div className="space-y-1">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</h3>
-                  <p className="text-xs text-gray-700 bg-gray-50 rounded p-2">{selectedBooking.notes}</p>
-                </div>
+              {/* Error */}
+              {panelError && (
+                <p className="text-red-600 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {panelError}
+                </p>
               )}
+
+              {/* Action buttons */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={handleUpdateBooking}
+                  disabled={panelLoading}
+                  className="flex-1 bg-green-700 hover:bg-green-800 disabled:bg-gray-300 text-white text-xs font-semibold py-2 rounded-lg transition"
+                >
+                  {panelLoading ? "Saving…" : "Save Changes"}
+                </button>
+                <button
+                  onClick={handleCancelBooking}
+                  disabled={panelLoading || selectedBooking.status === "cancelled"}
+                  className="px-3 py-2 border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 text-xs rounded-lg transition"
+                  title="Cancel booking"
+                >
+                  Cancel
+                </button>
+              </div>
 
               <p className="text-xs text-gray-400">
                 Booked {new Date(selectedBooking.created_at).toLocaleDateString("en-ZA")}
@@ -638,7 +771,6 @@ export default function DashboardGrid() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
         >
           <div className="modal-content bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            {/* Modal header */}
             <div className="bg-green-900 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-lg">New Booking</h2>
@@ -655,7 +787,6 @@ export default function DashboardGrid() {
             </div>
 
             <form onSubmit={handleAddBooking} className="p-6 space-y-4">
-              {/* Room info (read-only) */}
               <div className="grid grid-cols-2 gap-3">
                 <FormField
                   label="Room Type"
@@ -671,7 +802,6 @@ export default function DashboardGrid() {
                 />
               </div>
 
-              {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <FormField
                   label="Check-in *"
@@ -689,7 +819,6 @@ export default function DashboardGrid() {
                 />
               </div>
 
-              {/* Guest */}
               <FormField
                 label="Guest Name *"
                 value={addForm.guest_name}
@@ -732,7 +861,6 @@ export default function DashboardGrid() {
                 />
               </div>
 
-              {/* Status & Amount */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
@@ -835,6 +963,31 @@ function PanelRow({ label, value }: { label: string; value: string | number }) {
     <div className="flex justify-between gap-2 text-sm">
       <span className="text-gray-500 text-xs">{label}</span>
       <span className="text-gray-800 text-xs font-medium text-right">{value}</span>
+    </div>
+  );
+}
+
+function PanelInput({
+  label, value, onChange, type = "text", placeholder, min,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+  min?: number;
+}) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-600 mb-1">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        min={min}
+        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-600"
+      />
     </div>
   );
 }

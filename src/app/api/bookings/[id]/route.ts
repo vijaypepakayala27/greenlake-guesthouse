@@ -17,6 +17,38 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     "status", "amount", "special_requests", "notes",
   ];
 
+  // Conflict check if dates are changing
+  if ("check_in" in body || "check_out" in body) {
+    const { rows: current } = await query(
+      `SELECT room_number, check_in::text, check_out::text FROM bookings WHERE id = $1`,
+      [id]
+    );
+    if (current.length === 0) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+    const room = current[0].room_number;
+    const newCheckIn = body.check_in || current[0].check_in;
+    const newCheckOut = body.check_out || current[0].check_out;
+
+    const { rows: conflicts } = await query(
+      `SELECT id, guest_name, check_in::text, check_out::text
+       FROM bookings
+       WHERE room_number = $1
+         AND id != $2
+         AND status != 'cancelled'
+         AND check_in < $3
+         AND check_out > $4`,
+      [room, id, newCheckOut, newCheckIn]
+    );
+
+    if (conflicts.length > 0) {
+      const c = conflicts[0];
+      return NextResponse.json({
+        error: `Room ${room} already booked by ${c.guest_name} from ${c.check_in} to ${c.check_out}`,
+      }, { status: 409 });
+    }
+  }
+
   const setClauses: string[] = [];
   const values: any[] = [];
   let idx = 1;
