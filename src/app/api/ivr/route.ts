@@ -290,17 +290,17 @@ async function handleRequest(req: NextRequest): Promise<NextResponse> {
       );
 
       if (inserted.length > 0) {
+        const bookingId = inserted[0].id || "0000";
         // Update call log outcome
         if (recentCalls[0]) recentCalls[0].outcome = "booked";
         return xml(`
           <Say voice="Polly.Joanna">
-            Perfect! Your reservation request has been received.
-            Room ${roomNumber}, a ${roomLabel} room,
-            checking in ${checkin}, checking out ${checkout},
+            Perfect! A ${roomLabel} room has been confirmed for you,
+            checking in ${checkin} and checking out ${checkout},
             for ${guestCount} guest${guestCount !== 1 ? "s" : ""}.
-            The total is ${amount} rand for ${nights} night${nights !== 1 ? "s" : ""}.
-            We will confirm via WhatsApp shortly.
-            Thank you for choosing Green Lake Guest House. Goodbye!
+            Your booking reference is G R N dash ${String(bookingId).slice(-4).toUpperCase()}.
+            Please present this reference when you arrive.
+            We look forward to welcoming you to Green Lake Guest House. Goodbye!
           </Say>
           <Hangup/>
         `);
