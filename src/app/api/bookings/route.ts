@@ -4,18 +4,32 @@ import { isAuthorized } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/bookings?month=YYYY-MM
+// GET /api/bookings?month=YYYY-MM&guest_name=...&guest_phone=...
 export async function GET(req: NextRequest) {
   await ensureInit();
   const month = req.nextUrl.searchParams.get("month");
+  const guestName = req.nextUrl.searchParams.get("guest_name");
+  const guestPhone = req.nextUrl.searchParams.get("guest_phone");
 
-  let whereClause = "";
+  const conditions: string[] = [];
   const params: any[] = [];
 
   if (month && /^\d{4}-\d{2}$/.test(month)) {
-    whereClause = `WHERE check_in < $1::date + interval '1 month' AND check_out > $1::date`;
     params.push(`${month}-01`);
+    conditions.push(`check_in < $${params.length}::date + interval '1 month' AND check_out > $${params.length}::date`);
   }
+
+  if (guestName) {
+    params.push(`%${guestName}%`);
+    conditions.push(`LOWER(guest_name) LIKE LOWER($${params.length})`);
+  }
+
+  if (guestPhone) {
+    params.push(`%${guestPhone}%`);
+    conditions.push(`guest_phone LIKE $${params.length}`);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const { rows } = await query(
     `SELECT

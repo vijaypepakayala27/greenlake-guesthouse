@@ -3,6 +3,72 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Booking } from "@/lib/types";
 
+const IVR_NUMBER = process.env.NEXT_PUBLIC_IVR_NUMBER || "+27101579079";
+
+function IvrModal({ onClose }: { onClose: () => void }) {
+  const [ivrBookings, setIvrBookings] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/bookings")
+      .then(r => r.json())
+      .then(d => {
+        const ivr = (d.bookings || []).filter((b: any) =>
+          b.notes && b.notes.toLowerCase().includes("ivr")
+        ).slice(0, 5);
+        setIvrBookings(ivr);
+      })
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="glass rounded-2xl p-6 w-full max-w-md mx-4 border border-white/10" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-semibold text-sm">IVR Active</span>
+          </div>
+          <button onClick={onClose} className="text-[var(--muted)] hover:text-white transition text-lg leading-none">&times;</button>
+        </div>
+
+        <div className="space-y-3 mb-5">
+          <div className="bg-white/[0.03] rounded-xl p-4 border border-white/5">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] mb-1">Phone Number</div>
+            <div className="font-mono text-lg font-semibold text-emerald-400">{IVR_NUMBER}</div>
+          </div>
+          <div className="bg-white/[0.03] rounded-xl p-4 border border-white/5">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--muted)] mb-1">Webhook URL</div>
+            <div className="font-mono text-xs text-[var(--muted)] break-all">/api/ivr</div>
+          </div>
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+            <div className="text-xs font-medium text-emerald-400 mb-1">How to test</div>
+            <div className="text-xs text-[var(--muted)]">Call <span className="font-mono text-emerald-400">{IVR_NUMBER}</span> and follow the prompts to make or check a reservation.</div>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-medium text-[var(--muted)] mb-2 uppercase tracking-widest">Recent IVR Bookings</div>
+          {ivrBookings.length === 0 ? (
+            <div className="text-xs text-[var(--muted)] py-2">No IVR bookings yet</div>
+          ) : (
+            <div className="space-y-2">
+              {ivrBookings.map((b: any) => (
+                <div key={b.id} className="flex items-center justify-between bg-white/[0.03] rounded-lg px-3 py-2 border border-white/5">
+                  <div>
+                    <div className="text-xs font-medium">{b.guest_name}</div>
+                    <div className="text-[10px] text-[var(--muted)]">Room {b.room_number} · {b.check_in} → {b.check_out}</div>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">{b.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface Stats {
   totalRooms: number; bookedRooms: number; available: number;
   occupancy: number; revenue: number; guests: number; bookings: number;
@@ -35,6 +101,7 @@ export default function Dashboard() {
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
+  const [showIvr, setShowIvr] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -66,6 +133,15 @@ export default function Dashboard() {
             <span className="text-[var(--muted)] text-sm hidden sm:inline">/ Operations Dashboard</span>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowIvr(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/15 transition"
+              title="IVR Active"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs text-emerald-400 font-medium hidden sm:inline">IVR Active: {IVR_NUMBER}</span>
+              <span className="text-xs text-emerald-400 font-medium sm:hidden">IVR</span>
+            </button>
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--green)]/10 border border-[var(--green)]/20">
               <div className="w-1.5 h-1.5 rounded-full bg-[var(--green)] animate-pulse" />
               <span className="text-xs text-[var(--green)] font-medium">Live</span>
@@ -199,6 +275,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      {showIvr && <IvrModal onClose={() => setShowIvr(false)} />}
     </div>
   );
 }
