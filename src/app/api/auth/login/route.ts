@@ -4,7 +4,9 @@ import { signToken } from "@/lib/auth";
 export async function POST(req: Request) {
   const { password } = await req.json();
 
-  if (!password || password !== process.env.ADMIN_PASSWORD) {
+  const adminPassword = process.env.ADMIN_PASSWORD || "greenlake2026";
+
+  if (!password || password !== adminPassword) {
     return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
 
