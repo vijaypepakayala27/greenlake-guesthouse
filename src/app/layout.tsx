@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Grand Horizon Hotel | AI Booking Assistant",
-  description: "Book your stay with our AI-powered voice assistant. Call in, check availability, and confirm your reservation instantly.",
+  title: "Green Lake Guest House | Reservation Management",
+  description: "Hotel reservation management system for Green Lake Guest House, South Africa.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

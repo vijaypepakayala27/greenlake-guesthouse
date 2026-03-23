@@ -1,125 +1,126 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
 
 @import "tailwindcss";
 
 :root {
-  --bg: #050a14;
-  --bg2: #0a1225;
-  --bg3: #0f1a32;
-  --card: #111d35;
-  --gold: #d4a843;
-  --gold-bright: #f0cc6b;
-  --gold-dim: #8b7535;
-  --accent: #2563eb;
-  --text: #e8e6e3;
-  --muted: #5a6a85;
-  --border: rgba(212, 168, 67, 0.08);
-  --green: #22c55e;
-  --red: #ef4444;
+  --green-900: #1a3d2b;
+  --green-800: #1e4d34;
+  --green-700: #25603f;
+  --green-100: #dcfce7;
+  --green-50: #f0fdf4;
 }
 
 * { box-sizing: border-box; }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: #f8fafc;
+  color: #1e293b;
   font-family: 'Inter', system-ui, sans-serif;
   overflow-x: hidden;
 }
 
 .font-display { font-family: 'Playfair Display', serif; }
 
-/* Gradient mesh background */
-.mesh-bg {
-  background:
-    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(37, 99, 235, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(212, 168, 67, 0.05) 0%, transparent 60%),
-    var(--bg);
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Grid table */
+.booking-grid {
+  border-collapse: collapse;
+  width: max-content;
 }
 
-/* Glass card */
-.glass {
-  background: linear-gradient(135deg, rgba(17, 29, 53, 0.8), rgba(15, 26, 50, 0.6));
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
+.booking-grid th,
+.booking-grid td {
+  border: 1px solid #e2e8f0;
 }
 
-.glass-gold {
-  background: linear-gradient(135deg, rgba(212, 168, 67, 0.08), rgba(17, 29, 53, 0.8));
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(212, 168, 67, 0.15);
+.booking-grid .room-cell {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: white;
+  min-width: 96px;
+  width: 96px;
 }
 
-/* Glow effects */
-.glow-gold { box-shadow: 0 0 40px -10px rgba(212, 168, 67, 0.2); }
-.glow-blue { box-shadow: 0 0 40px -10px rgba(37, 99, 235, 0.2); }
-.glow-green { box-shadow: 0 0 30px -8px rgba(34, 197, 94, 0.25); }
+.booking-grid .day-header {
+  min-width: 32px;
+  width: 32px;
+  background: #f8fafc;
+  text-align: center;
+  padding: 4px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.booking-grid .day-header.today {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.booking-grid .floor-row td {
+  background: #1e293b;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  position: sticky;
+  left: 0;
+}
+
+.grid-cell {
+  cursor: pointer;
+  padding: 2px;
+}
+
+.grid-cell-inner {
+  width: 100%;
+  height: 26px;
+  border-radius: 3px;
+  transition: filter 0.1s, transform 0.1s;
+}
+
+.grid-cell:hover .grid-cell-inner {
+  filter: brightness(0.9);
+  transform: scale(0.95);
+}
+
+.cell-available   { background: #4ade80; }
+.cell-confirmed   { background: #f87171; }
+.cell-paid        { background: #fbbf24; }
+.cell-pending     { background: #fb923c; }
+.cell-maintenance { background: #94a3b8; }
+.cell-cancelled   { background: #e2e8f0; }
+
+/* Side panel slide-in */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.side-panel {
+  animation: slideInRight 0.2s ease-out;
+}
+
+/* Modal */
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.modal-content {
+  animation: fadeInScale 0.2s ease-out;
+}
 
 /* Animations */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes waveform {
-  0%, 100% { height: 4px; }
-  50% { height: var(--h, 20px); }
-}
-@keyframes ring {
-  0% { transform: rotate(0deg); }
-  10% { transform: rotate(15deg); }
-  20% { transform: rotate(-15deg); }
-  30% { transform: rotate(10deg); }
-  40% { transform: rotate(-10deg); }
-  50% { transform: rotate(0deg); }
-  100% { transform: rotate(0deg); }
-}
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-  100% { box-shadow: 0 0 0 20px rgba(34, 197, 94, 0); }
-}
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.animate-float { animation: float 4s ease-in-out infinite; }
-.animate-fadeUp { animation: fadeUp 0.6s ease-out forwards; }
-.animate-slideIn { animation: slideIn 0.4s ease-out forwards; }
-.animate-scaleIn { animation: scaleIn 0.3s ease-out forwards; }
-.animate-ring { animation: ring 1.5s ease-in-out infinite; }
-.animate-pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
-.animate-gradient { 
-  background-size: 200% 200%;
-  animation: gradient-shift 3s ease infinite;
-}
-
-/* Waveform bar */
-.wave-bar {
-  animation: waveform 0.6s ease-in-out infinite;
-  animation-delay: var(--d, 0s);
-}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 4px; }
-
-/* Phone ring shimmer */
-.shimmer {
-  background: linear-gradient(90deg, transparent, rgba(212, 168, 67, 0.1), transparent);
-  background-size: 200% 100%;
-  animation: gradient-shift 2s linear infinite;
-}
+.animate-fadeUp { animation: fadeUp 0.4s ease-out forwards; }

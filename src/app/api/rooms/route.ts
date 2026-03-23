@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
-import { getAllRooms } from "@/lib/data";
+import { query, ensureInit } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const rooms = await getAllRooms();
-  return NextResponse.json({ rooms });
+  await ensureInit();
+  const { rows } = await query(
+    `SELECT room_number, floor, room_type, price_per_night::float
+     FROM rooms
+     ORDER BY floor ASC, room_number ASC`
+  );
+  return NextResponse.json({ rooms: rows });
 }
