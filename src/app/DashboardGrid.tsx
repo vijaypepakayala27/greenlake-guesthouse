@@ -72,6 +72,22 @@ const TYPE_BADGE: Record<string, string> = {
   suite:    "bg-amber-100 text-amber-700",
 };
 
+const FLOOR_HEADER_BG: Record<number, string> = {
+  1: "#1e40af", // blue-800
+  2: "#1d4ed8", // blue-700
+  3: "#6b21a8", // purple-800
+  4: "#7e22ce", // purple-700
+  5: "#b45309", // amber-700
+};
+
+const FLOOR_ROOM_LABEL_BG: Record<number, string> = {
+  1: "#eff6ff", // blue-50
+  2: "#eff6ff", // blue-50
+  3: "#faf5ff", // purple-50
+  4: "#faf5ff", // purple-50
+  5: "#fffbeb", // amber-50
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function todayStr() {
@@ -366,7 +382,6 @@ export default function DashboardGrid() {
         <StatBadge label="Total Rooms" value={stats.total} />
         <StatBadge label="Occupied Today" value={stats.occupied} valueClass="text-red-600 font-semibold" />
         <StatBadge label="Available Today" value={stats.available} valueClass="text-green-700 font-semibold" />
-        <StatBadge label="Revenue This Month" value={`R ${stats.revenue.toLocaleString("en-ZA")}`} valueClass="text-amber-700 font-semibold" />
       </div>
 
       {/* ── Legend ── */}
@@ -428,7 +443,7 @@ export default function DashboardGrid() {
                       <td
                         colSpan={days.length + 1}
                         className="floor-row"
-                        style={{ padding: "4px 10px", background: "#1e293b", color: "white", fontSize: 11, fontWeight: 600, position: "sticky", left: 0 }}
+                        style={{ padding: "4px 10px", background: FLOOR_HEADER_BG[floor], color: "white", fontSize: 11, fontWeight: 600 }}
                       >
                         Floor {floor} — {FLOOR_LABEL[floor]}
                       </td>
@@ -438,7 +453,7 @@ export default function DashboardGrid() {
                     {(roomsByFloor[floor] || []).map((room) => (
                       <tr key={room.room_number} className="hover:bg-gray-50/80">
                         {/* Room label cell */}
-                        <td className="room-cell border border-gray-200 px-2 py-1">
+                        <td className="room-cell border border-gray-200 px-2 py-1" style={{ background: FLOOR_ROOM_LABEL_BG[floor] }}>
                           <div className="font-semibold text-gray-800 text-xs">{room.room_number}</div>
                           <div className={`inline-block px-1 rounded text-gray-500 mt-0.5 capitalize`} style={{ fontSize: 9 }}>
                             R{room.price_per_night.toLocaleString()}
