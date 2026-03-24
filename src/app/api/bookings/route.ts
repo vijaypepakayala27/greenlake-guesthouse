@@ -20,17 +20,17 @@ export async function GET(req: NextRequest) {
 
   if (month && /^\d{4}-\d{2}$/.test(month)) {
     params.push(`${month}-01`);
-    conditions.push(`check_in < $${params.length}::date + interval '1 month' AND check_out > $${params.length}::date`);
+    conditions.push(`b.check_in < $${params.length}::date + interval '1 month' AND b.check_out > $${params.length}::date`);
   }
 
   if (guestName) {
     params.push(`%${guestName}%`);
-    conditions.push(`LOWER(guest_name) LIKE LOWER($${params.length})`);
+    conditions.push(`LOWER(b.guest_name) LIKE LOWER($${params.length})`);
   }
 
   if (guestPhone) {
     params.push(`%${guestPhone}%`);
-    conditions.push(`guest_phone LIKE $${params.length}`);
+    conditions.push(`b.guest_phone LIKE $${params.length}`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
