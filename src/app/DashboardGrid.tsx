@@ -216,10 +216,13 @@ export default function DashboardGrid() {
     for (const b of bookings) {
       if (b.status === "cancelled") continue;
       if (!map[b.room_number]) map[b.room_number] = {};
-      const start = new Date(b.check_in + "T00:00:00");
-      const end = new Date(b.check_out + "T00:00:00");
+      const start = new Date(b.check_in + "T12:00:00");
+      const end = new Date(b.check_out + "T12:00:00");
       for (const d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-        map[b.room_number][d.toISOString().split("T")[0]] = b;
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        map[b.room_number][`${yy}-${mm}-${dd}`] = b;
       }
     }
     return map;
