@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -179,8 +179,9 @@ export default function DashboardGrid() {
 
   // ─── Data fetching ──────────────────────────────────────────────────────────
 
+  const initialLoad = React.useRef(true);
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    if (initialLoad.current) setLoading(true);
     try {
       const [roomsRes, bookingsRes] = await Promise.all([
         fetch("/api/rooms"),
@@ -198,6 +199,7 @@ export default function DashboardGrid() {
       console.error("fetchData error:", e);
     } finally {
       setLoading(false);
+      initialLoad.current = false;
     }
   }, [currentMonth, router]);
 
