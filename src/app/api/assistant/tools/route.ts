@@ -76,8 +76,8 @@ async function handleCheckAvailability(args: any) {
   const result = Object.entries(available).map(([type, info]) => ({
     type,
     available_rooms: info.count,
-    price_per_night: `$${info.price}`,
-    total_for_stay: `$${info.total}`,
+    price_per_night: `R${info.price}`,
+    total_for_stay: `R${info.total}`,
     nights,
     amenities: info.amenities,
   }));
@@ -151,7 +151,7 @@ async function handleCreateBooking(args: any) {
       guest_name,
       adults: adults || 1,
       children: children || 0,
-      total_price: `$${totalPrice}`,
+      total_price: `R${totalPrice}`,
     }),
   });
 }
@@ -174,7 +174,7 @@ async function handleSendConfirmation(args: any) {
       body: JSON.stringify({
         from,
         to: phone,
-        text: `🏨 Grand Horizon Hotel\n\n✅ Booking Confirmed!\n📋 ${confirmation_code}\n\n${summary}\n\nWe look forward to your stay!`,
+        text: `🏨 Green Lake Guest House\n\n✅ Booking Confirmed!\n📋 ${confirmation_code}\n\n${summary}\n\nWe look forward to welcoming you!`,
       }),
     });
 
