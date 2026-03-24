@@ -61,7 +61,7 @@ interface EditForm {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FLOOR_LABEL: Record<number, string> = {
-  1: "Standard", 2: "Deluxe", 3: "En-suite",
+  1: "Standard (R850)", 2: "Deluxe (R1,200)", 3: "En-suite (R2,500)",
 };
 
 const STATUS_OPTIONS = [

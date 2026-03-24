@@ -47,19 +47,25 @@ export async function ensureInit() {
     )
   `);
 
-  // Seed rooms if empty
-  const { rows } = await query('SELECT COUNT(*)::text as count FROM rooms');
-  if (parseInt(rows[0].count) === 0) {
-    const rooms = [
-      ...Array.from({ length: 5 }, (_, i) => ({ num: `10${i + 1}`, floor: 1, type: 'standard', price: 850 })),
-      ...Array.from({ length: 5 }, (_, i) => ({ num: `20${i + 1}`, floor: 2, type: 'deluxe', price: 1200 })),
-      ...Array.from({ length: 5 }, (_, i) => ({ num: `30${i + 1}`, floor: 3, type: 'en-suite', price: 2500 })),
-    ];
-    for (const r of rooms) {
-      await query(
-        'INSERT INTO rooms (room_number, floor, room_type, price_per_night) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
-        [r.num, r.floor, r.type, r.price]
-      );
-    }
+  // Fix room structure: 3 floors, 5 rooms each
+  // Floor 1: Standard (R850), Floor 2: Deluxe (R1200), Floor 3: En-suite (R2500)
+  const targetRooms = [
+    ...Array.from({ length: 5 }, (_, i) => ({ num: `10${i + 1}`, floor: 1, type: 'standard', price: 850 })),
+    ...Array.from({ length: 5 }, (_, i) => ({ num: `20${i + 1}`, floor: 2, type: 'deluxe', price: 1200 })),
+    ...Array.from({ length: 5 }, (_, i) => ({ num: `30${i + 1}`, floor: 3, type: 'en-suite', price: 2500 })),
+  ];
+  const targetNums = new Set(targetRooms.map(r => r.num));
+
+  // Remove rooms not in target (floors 4-5 and any extras)
+  await query(`DELETE FROM bookings WHERE room_number NOT IN (${targetRooms.map((_, i) => `$${i + 1}`).join(',')})`, targetRooms.map(r => r.num));
+  await query(`DELETE FROM rooms WHERE room_number NOT IN (${targetRooms.map((_, i) => `$${i + 1}`).join(',')})`, targetRooms.map(r => r.num));
+
+  // Upsert correct rooms
+  for (const r of targetRooms) {
+    await query(
+      `INSERT INTO rooms (room_number, floor, room_type, price_per_night) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (room_number) DO UPDATE SET floor = $2, room_type = $3, price_per_night = $4`,
+      [r.num, r.floor, r.type, r.price]
+    );
   }
 }

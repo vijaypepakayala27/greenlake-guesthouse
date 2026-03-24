@@ -89,10 +89,10 @@ async function handleCreateBooking(args: any) {
   const d2 = new Date(check_out);
   const nights = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
 
-  // Normalize room type: "en-suite" → "suite", case insensitive
+  // Normalize room type: "suite" → "en-suite", "ensuite" → "en-suite"
   let normalizedType = room_type?.toLowerCase().trim();
-  if (normalizedType === "en-suite" || normalizedType === "ensuite") {
-    normalizedType = "suite";
+  if (normalizedType === "suite" || normalizedType === "ensuite") {
+    normalizedType = "en-suite";
   }
 
   // Find an available room of this type
