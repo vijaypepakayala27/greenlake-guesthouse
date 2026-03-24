@@ -4,6 +4,10 @@ import { isAuthorized } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 // GET /api/bookings?month=YYYY-MM&guest_name=...&guest_phone=...
 export async function GET(req: NextRequest) {
   await ensureInit();
@@ -33,18 +37,72 @@ export async function GET(req: NextRequest) {
 
   const { rows } = await query(
     `SELECT
-       id, room_number, guest_name, guest_phone, guest_email,
-       check_in::text, check_out::text,
-       adults, children, status,
-       amount::float, special_requests, notes,
-       created_at, updated_at
-     FROM bookings
+       b.id, b.room_number, b.guest_name, b.guest_phone, b.guest_email,
+       b.check_in::text, b.check_out::text,
+       b.adults, b.children, b.status,
+       b.amount::float, b.special_requests, b.notes,
+       b.created_at, b.updated_at,
+       r.room_type
+     FROM bookings b
+     LEFT JOIN rooms r ON b.room_number = r.room_number
      ${whereClause}
-     ORDER BY check_in ASC`,
+     ORDER BY b.created_at DESC`,
     params
   );
 
-  return NextResponse.json({ bookings: rows });
+  // Transform to camelCase for dashboard
+  const bookings = rows.map((r: any) => ({
+    id: r.id,
+    roomId: r.room_number,
+    roomType: capitalize(r.room_type || "standard"),
+    roomNumber: r.room_number,
+    guestName: r.guest_name,
+    guestPhone: r.guest_phone,
+    guestEmail: r.guest_email,
+    checkIn: r.check_in,
+    checkOut: r.check_out,
+    adults: r.adults || 1,
+    children: r.children || 0,
+    status: r.status,
+    totalPrice: r.amount || 0,
+    confirmationCode: `GRN-${String(r.id).slice(-4).toUpperCase()}`,
+    specialRequests: r.special_requests,
+    notes: r.notes,
+    createdAt: r.created_at,
+  }));
+
+  // Compute stats
+  const { rows: roomRows } = await query("SELECT COUNT(*)::int as total FROM rooms");
+  const totalRooms = roomRows[0]?.total || 0;
+
+  const today = new Date().toISOString().split("T")[0];
+  const { rows: bookedRows } = await query(
+    `SELECT COUNT(DISTINCT room_number)::int as booked FROM bookings
+     WHERE status NOT IN ('cancelled', 'checked-out')
+       AND check_in <= $1::date AND check_out > $1::date`,
+    [today]
+  );
+  const bookedRooms = bookedRows[0]?.booked || 0;
+  const available = totalRooms - bookedRooms;
+  const occupancy = totalRooms > 0 ? Math.round((bookedRooms / totalRooms) * 100) : 0;
+
+  const revenue = bookings.reduce((sum: number, b: any) => sum + (b.totalPrice || 0), 0);
+  const guests = bookings
+    .filter((b: any) => b.status !== "cancelled" && b.status !== "checked-out")
+    .reduce((sum: number, b: any) => sum + (b.adults || 0) + (b.children || 0), 0);
+
+  return NextResponse.json({
+    bookings,
+    stats: {
+      totalRooms,
+      bookedRooms,
+      available,
+      occupancy,
+      revenue,
+      guests,
+      bookings: bookings.length,
+    },
+  });
 }
 
 // POST /api/bookings — requires auth (API key or JWT session)
