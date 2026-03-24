@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { query, ensureInit } from "@/lib/db";
 
 // Telnyx AI Assistant webhook — handles tool calls
 export async function POST(req: NextRequest) {
+  await ensureInit();
+  
   const body = await req.json();
   console.log("[assistant/tools] webhook:", JSON.stringify(body).slice(0, 500));
 
-  // Telnyx webhook tools POST the body_parameters directly
-  // Detect function from: explicit function_name field, or by checking which required params exist
+  // Detect function from body
   let functionName = body?.function_name || body?.name || body?.tool_call?.function?.name;
   
   // Auto-detect from body params if no explicit function name
@@ -17,19 +18,19 @@ export async function POST(req: NextRequest) {
     else if (body?.check_in || body?.check_out) functionName = "check_availability";
   }
   
-  const parsedArgs = { ...body };
-  delete parsedArgs.function_name;
-  delete parsedArgs.name;
+  const args = { ...body };
+  delete args.function_name;
+  delete args.name;
   
-  console.log("[assistant/tools] function:", functionName, "body keys:", Object.keys(body), "args:", JSON.stringify(parsedArgs));
+  console.log("[assistant/tools] function:", functionName, "args:", JSON.stringify(args));
 
   try {
     if (functionName === "check_availability") {
-      return handleCheckAvailability(parsedArgs);
+      return handleCheckAvailability(args);
     } else if (functionName === "create_booking") {
-      return handleCreateBooking(parsedArgs);
+      return handleCreateBooking(args);
     } else if (functionName === "send_confirmation") {
-      return handleSendConfirmation(parsedArgs);
+      return handleSendConfirmation(args);
     } else {
       return NextResponse.json({ result: "Unknown tool: " + functionName });
     }
@@ -41,110 +42,94 @@ export async function POST(req: NextRequest) {
 
 async function handleCheckAvailability(args: any) {
   const { check_in, check_out } = args;
-  const checkIn = new Date(check_in);
-  const checkOut = new Date(check_out);
-  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+  const checkIn = check_in;
+  const checkOut = check_out;
 
-  // Get rooms that are NOT booked for these dates
-  const bookedRoomIds = await prisma.booking.findMany({
-    where: {
-      status: { not: "cancelled" },
-      checkIn: { lt: checkOut },
-      checkOut: { gt: checkIn },
-    },
-    select: { roomId: true },
-  });
+  const d1 = new Date(checkIn);
+  const d2 = new Date(checkOut);
+  const nights = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
 
-  const bookedIds = new Set(bookedRoomIds.map((b: any) => b.roomId));
+  const { rows } = await query(
+    `SELECT r.room_type, r.price_per_night::float as price, COUNT(*) as available_count
+     FROM rooms r
+     WHERE r.room_number NOT IN (
+       SELECT b.room_number FROM bookings b
+       WHERE b.status NOT IN ('cancelled')
+         AND b.check_in < $2::date
+         AND b.check_out > $1::date
+     )
+     GROUP BY r.room_type, r.price_per_night
+     ORDER BY r.price_per_night ASC`,
+    [checkIn, checkOut]
+  );
 
-  const allRooms = await prisma.room.findMany();
-  const available: Record<string, { count: number; price: number; total: number; amenities: string }> = {};
-
-  for (const room of allRooms) {
-    if (bookedIds.has(room.id)) continue;
-    if (!available[room.type]) {
-      available[room.type] = {
-        count: 0,
-        price: room.pricePerNight,
-        total: room.pricePerNight * nights,
-        amenities: Array.isArray(room.amenities) ? (room.amenities as string[]).join(", ") : String(room.amenities || ""),
-      };
-    }
-    available[room.type].count++;
+  if (rows.length === 0) {
+    return NextResponse.json({
+      result: JSON.stringify({ message: "No rooms available for those dates", check_in, check_out }),
+    });
   }
 
-  const result = Object.entries(available).map(([type, info]) => ({
-    type,
-    available_rooms: info.count,
-    price_per_night: `R${info.price}`,
-    total_for_stay: `R${info.total}`,
+  const available = rows.map((r: any) => ({
+    type: r.room_type,
+    available_rooms: parseInt(r.available_count),
+    price_per_night: `R${r.price}`,
+    total_for_stay: `R${r.price * nights}`,
     nights,
-    amenities: info.amenities,
   }));
 
   return NextResponse.json({
-    result: result.length > 0
-      ? JSON.stringify({ available_rooms: result, check_in, check_out, nights })
-      : JSON.stringify({ message: "No rooms available for those dates", check_in, check_out }),
+    result: JSON.stringify({ available_rooms: available, check_in, check_out, nights }),
   });
 }
 
 async function handleCreateBooking(args: any) {
   const { guest_name, phone, room_type, check_in, check_out, adults, children } = args;
-  const checkIn = new Date(check_in);
-  const checkOut = new Date(check_out);
-  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+  const d1 = new Date(check_in);
+  const d2 = new Date(check_out);
+  const nights = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
 
   // Find an available room of this type
-  const bookedRoomIds = await prisma.booking.findMany({
-    where: {
-      status: { not: "cancelled" },
-      checkIn: { lt: checkOut },
-      checkOut: { gt: checkIn },
-    },
-    select: { roomId: true },
-  });
+  const { rows: available } = await query(
+    `SELECT room_number, price_per_night::float as price FROM rooms
+     WHERE LOWER(room_type) = LOWER($1)
+       AND room_number NOT IN (
+         SELECT room_number FROM bookings
+         WHERE status NOT IN ('cancelled')
+           AND check_in < $3::date
+           AND check_out > $2::date
+       )
+     ORDER BY room_number
+     LIMIT 1`,
+    [room_type, check_in, check_out]
+  );
 
-  const bookedIds = new Set(bookedRoomIds.map((b: any) => b.roomId));
-
-  const room = await prisma.room.findFirst({
-    where: {
-      type: room_type,
-      id: { notIn: Array.from(bookedIds) as string[] },
-    },
-  });
-
-  if (!room) {
+  if (available.length === 0) {
     return NextResponse.json({
       result: JSON.stringify({ error: true, message: `No ${room_type} rooms available for those dates` }),
     });
   }
 
-  const totalPrice = room.pricePerNight * nights;
-  const code = "GH-" + Math.random().toString(36).substring(2, 6).toUpperCase();
+  const roomNumber = available[0].room_number;
+  const price = available[0].price;
+  const totalPrice = price * nights;
 
-  const booking = await prisma.booking.create({
-    data: {
-      roomId: room.id,
-      guestName: guest_name,
-      guestPhone: phone,
-      checkIn,
-      checkOut,
-      adults: adults || 1,
-      children: children || 0,
-      totalPrice,
-      confirmationCode: code,
-      status: "confirmed",
-    },
-  });
+  const { rows: inserted } = await query(
+    `INSERT INTO bookings
+       (room_number, guest_name, guest_phone, check_in, check_out, adults, children, status, amount, notes)
+     VALUES ($1, $2, $3, $4::date, $5::date, $6, $7, 'confirmed', $8, 'Booked via AI Assistant')
+     RETURNING id`,
+    [roomNumber, guest_name, phone || null, check_in, check_out, adults || 1, children || 0, totalPrice]
+  );
+
+  const bookingId = inserted[0]?.id || "0000";
+  const code = "GRN-" + String(bookingId).slice(-4).toUpperCase();
 
   return NextResponse.json({
     result: JSON.stringify({
       success: true,
       confirmation_code: code,
-      room_number: room.number,
-      room_type: room.type,
-      floor: room.floor,
+      room_type,
       check_in,
       check_out,
       nights,
