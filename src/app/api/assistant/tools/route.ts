@@ -89,10 +89,16 @@ async function handleCreateBooking(args: any) {
   const d2 = new Date(check_out);
   const nights = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
 
+  // Normalize room type: "en-suite" → "suite", case insensitive
+  let normalizedType = room_type?.toLowerCase().trim();
+  if (normalizedType === "en-suite" || normalizedType === "ensuite") {
+    normalizedType = "suite";
+  }
+
   // Find an available room of this type
   const { rows: available } = await query(
     `SELECT room_number, price_per_night::float as price FROM rooms
-     WHERE LOWER(room_type) = LOWER($1)
+     WHERE LOWER(room_type) = LOWER($1::text)
        AND room_number NOT IN (
          SELECT room_number FROM bookings
          WHERE status NOT IN ('cancelled')
@@ -101,7 +107,7 @@ async function handleCreateBooking(args: any) {
        )
      ORDER BY room_number
      LIMIT 1`,
-    [room_type, check_in, check_out]
+    [normalizedType, check_in, check_out]
   );
 
   if (available.length === 0) {
