@@ -72,8 +72,8 @@ async function handleCheckAvailability(args: any) {
   const available = rows.map((r: any) => ({
     type: r.room_type,
     available_rooms: parseInt(r.available_count),
-    price_per_night: `R${r.price}`,
-    total_for_stay: `R${r.price * nights}`,
+    price_per_night_rand: r.price,
+    total_rand: r.price * nights,
     nights,
   }));
 
@@ -142,7 +142,7 @@ async function handleCreateBooking(args: any) {
       guest_name,
       adults: adults || 1,
       children: children || 0,
-      total_price: `R${totalPrice}`,
+      total_price_rand: totalPrice,
     }),
   });
 }
