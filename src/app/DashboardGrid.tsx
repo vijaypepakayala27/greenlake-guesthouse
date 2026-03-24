@@ -201,7 +201,11 @@ export default function DashboardGrid() {
     }
   }, [currentMonth, router]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+    const iv = setInterval(fetchData, 5000);
+    return () => clearInterval(iv);
+  }, [fetchData]);
 
   // ─── Computed values ────────────────────────────────────────────────────────
 
