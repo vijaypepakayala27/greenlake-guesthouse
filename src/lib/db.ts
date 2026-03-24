@@ -52,10 +52,8 @@ export async function ensureInit() {
   if (parseInt(rows[0].count) === 0) {
     const rooms = [
       ...Array.from({ length: 5 }, (_, i) => ({ num: `10${i + 1}`, floor: 1, type: 'standard', price: 850 })),
-      ...Array.from({ length: 5 }, (_, i) => ({ num: `20${i + 1}`, floor: 2, type: 'standard', price: 850 })),
-      ...Array.from({ length: 5 }, (_, i) => ({ num: `30${i + 1}`, floor: 3, type: 'deluxe', price: 1200 })),
-      ...Array.from({ length: 5 }, (_, i) => ({ num: `40${i + 1}`, floor: 4, type: 'deluxe', price: 1200 })),
-      ...Array.from({ length: 5 }, (_, i) => ({ num: `50${i + 1}`, floor: 5, type: 'suite', price: 2500 })),
+      ...Array.from({ length: 5 }, (_, i) => ({ num: `20${i + 1}`, floor: 2, type: 'deluxe', price: 1200 })),
+      ...Array.from({ length: 5 }, (_, i) => ({ num: `30${i + 1}`, floor: 3, type: 'en-suite', price: 2500 })),
     ];
     for (const r of rooms) {
       await query(

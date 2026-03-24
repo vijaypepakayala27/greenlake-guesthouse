@@ -39,7 +39,7 @@ function parseSpokenDate(input: string): string {
 
 function parseRoomType(input: string): { type: string; price: number; label: string } {
   const lower = input.toLowerCase();
-  if (lower.includes("suite")) return { type: "suite", price: 2500, label: "Suite" };
+  if (lower.includes("suite") || lower.includes("en-suite") || lower.includes("ensuite")) return { type: "en-suite", price: 2500, label: "En-suite" };
   if (lower.includes("deluxe")) return { type: "deluxe", price: 1200, label: "Deluxe" };
   return { type: "standard", price: 850, label: "Standard" };
 }
@@ -200,7 +200,7 @@ async function handleRequest(req: NextRequest): Promise<NextResponse> {
           <Say voice="Polly.Joanna">
             Would you prefer a Standard room at 850 rand per night,
             Deluxe at 1200 rand per night,
-            or a Suite at 2500 rand per night?
+            or an En-suite at 2500 rand per night?
           </Say>
         </Gather>
         <Redirect method="POST">${buildUrl("/api/ivr", { step: "res", state: "roomtype", name, checkin, checkout: parsedCheckout || rawCheckout })}</Redirect>
