@@ -61,7 +61,7 @@ interface EditForm {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FLOOR_LABEL: Record<number, string> = {
-  1: "Standard", 2: "Standard", 3: "Deluxe", 4: "Deluxe", 5: "Suite",
+  1: "Standard", 2: "Deluxe", 3: "En-suite",
 };
 
 const STATUS_OPTIONS = [
@@ -89,18 +89,14 @@ const TYPE_BADGE: Record<string, string> = {
 
 const FLOOR_HEADER_BG: Record<number, string> = {
   1: "#1e40af",
-  2: "#1e40af",
-  3: "#6b21a8",
-  4: "#6b21a8",
-  5: "#b45309",
+  2: "#6b21a8",
+  3: "#b45309",
 };
 
 const FLOOR_ROOM_LABEL_BG: Record<number, string> = {
   1: "#eff6ff",
-  2: "#eff6ff",
-  3: "#faf5ff",
-  4: "#faf5ff",
-  5: "#fffbeb",
+  2: "#faf5ff",
+  3: "#fffbeb",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -507,7 +503,7 @@ export default function DashboardGrid() {
                 </tr>
               </thead>
               <tbody>
-                {[1, 2, 3, 4, 5].map((floor) => (
+                {[1, 2, 3].map((floor) => (
                   <>
                     <tr key={`floor-${floor}`}>
                       <td
