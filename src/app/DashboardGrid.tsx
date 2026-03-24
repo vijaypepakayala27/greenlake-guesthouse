@@ -161,7 +161,8 @@ export default function DashboardGrid() {
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasData, setHasData] = useState(false);
 
   // Panel / modal state
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -179,9 +180,7 @@ export default function DashboardGrid() {
 
   // ─── Data fetching ──────────────────────────────────────────────────────────
 
-  const initialLoad = React.useRef(true);
   const fetchData = useCallback(async () => {
-    if (initialLoad.current) setLoading(true);
     try {
       const [roomsRes, bookingsRes] = await Promise.all([
         fetch("/api/rooms"),
@@ -195,11 +194,9 @@ export default function DashboardGrid() {
       const bookingsData = await bookingsRes.json();
       setRooms(roomsData.rooms || []);
       setBookings(bookingsData.bookings || []);
+      setHasData(true);
     } catch (e) {
       console.error("fetchData error:", e);
-    } finally {
-      setLoading(false);
-      initialLoad.current = false;
     }
   }, [currentMonth, router]);
 
@@ -477,7 +474,7 @@ export default function DashboardGrid() {
 
         {/* Grid scroll area */}
         <div className="flex-1 overflow-auto">
-          {loading ? (
+          {!hasData ? (
             <div className="flex items-center justify-center h-64 text-gray-400">
               <svg className="animate-spin w-6 h-6 mr-2" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
