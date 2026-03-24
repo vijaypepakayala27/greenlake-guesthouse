@@ -148,12 +148,29 @@ async function handleCreateBooking(args: any) {
 }
 
 async function handleSendConfirmation(args: any) {
-  const { phone, confirmation_code, summary } = args;
+  const { phone, guest_name, room_type, check_in, check_out, total_price, nights } = args;
 
-  const from = process.env.TELNYX_PHONE_NUMBER;
-  if (!from) {
-    return NextResponse.json({ result: JSON.stringify({ sent: false, reason: "No sending number configured" }) });
-  }
+  const from = process.env.TELNYX_PHONE_NUMBER || "+27101579079";
+
+  const checkInDate = check_in ? new Date(check_in + "T14:00:00").toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : check_in;
+  const checkOutDate = check_out ? new Date(check_out + "T11:00:00").toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : check_out;
+  const roomLabel = (room_type || "").charAt(0).toUpperCase() + (room_type || "").slice(1);
+
+  const text = [
+    `🏨 *Green Lake Guest House* ✅`,
+    ``,
+    `*BOOKING CONFIRMED*`,
+    ``,
+    `Guest: ${guest_name}`,
+    `Room: ${roomLabel}`,
+    `Check-in: ${checkInDate}, 2:00 PM`,
+    `Check-out: ${checkOutDate}, 11:00 AM`,
+    `${nights ? `Duration: ${nights} night${nights > 1 ? "s" : ""}` : ""}`,
+    `Total: R${total_price || 0}`,
+    `*Payment pending - pay at hotel*`,
+    ``,
+    `For changes, call +27 10 157 9079`,
+  ].filter(Boolean).join("\n");
 
   try {
     const res = await fetch("https://api.telnyx.com/v2/messages", {
@@ -162,11 +179,7 @@ async function handleSendConfirmation(args: any) {
         Authorization: `Bearer ${process.env.TELNYX_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from,
-        to: phone,
-        text: `🏨 Green Lake Guest House\n\n✅ Booking Confirmed!\n📋 ${confirmation_code}\n\n${summary}\n\nWe look forward to welcoming you!`,
-      }),
+      body: JSON.stringify({ from, to: phone, text }),
     });
 
     const data = await res.json();
