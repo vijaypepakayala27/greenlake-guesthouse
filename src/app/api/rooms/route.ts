@@ -26,12 +26,17 @@ export async function GET() {
   );
 
   const rooms = rows.map((r: any) => ({
+    // camelCase for /dashboard
     id: r.room_number,
     type: capitalize(r.room_type),
     number: r.room_number,
     floor: r.floor,
     pricePerNight: r.price_per_night,
     booked: r.booked,
+    // snake_case for DashboardGrid (base page)
+    room_number: r.room_number,
+    room_type: r.room_type,
+    price_per_night: r.price_per_night,
   }));
 
   return NextResponse.json({ rooms });

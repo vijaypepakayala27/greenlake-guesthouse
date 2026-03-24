@@ -50,8 +50,9 @@ export async function GET(req: NextRequest) {
     params
   );
 
-  // Transform to camelCase for dashboard
+  // Return both camelCase (for /dashboard) and snake_case (for DashboardGrid base page)
   const bookings = rows.map((r: any) => ({
+    // camelCase for /dashboard
     id: r.id,
     roomId: r.room_number,
     roomType: capitalize(r.room_type || "standard"),
@@ -69,6 +70,16 @@ export async function GET(req: NextRequest) {
     specialRequests: r.special_requests,
     notes: r.notes,
     createdAt: r.created_at,
+    // snake_case for DashboardGrid (base page)
+    room_number: r.room_number,
+    guest_name: r.guest_name,
+    guest_phone: r.guest_phone,
+    guest_email: r.guest_email,
+    check_in: r.check_in,
+    check_out: r.check_out,
+    amount: r.amount || 0,
+    special_requests: r.special_requests,
+    created_at: r.created_at,
   }));
 
   // Compute stats
